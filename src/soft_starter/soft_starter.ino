@@ -1,17 +1,10 @@
-struct ioPins {
-  int pot;
-  int led;
-};
+const int LED0 = PB1;
+const int LED1 = PB0;
+const int LED2 = PB4;
 
+const int POT1 = A1;
+const int POT2 = A3;
 
-const ioPins IOPINS[] = {
-  {A0, PB0},
-  {A1, PB1},
-  {A3, PB4}
-};
-
-// reset pin not used
-const unsigned int RESET_PIN = A0;
 
 unsigned long startMillis;
 const unsigned long RAMP_MILLIS = 700;
@@ -37,10 +30,13 @@ const byte gammaCurve[256] = {
 
 
 void setup() {
-  for(ioPins pins: IOPINS){
-    pinMode(pins.pot, INPUT);
-    pinMode(pins.led, OUTPUT);
-  };
+  pinMode(POT1, INPUT);
+  pinMode(POT2, INPUT);
+  
+  pinMode(LED0, OUTPUT);
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+
   startMillis = millis();
 }
 
@@ -66,20 +62,23 @@ void loop() {
 
 
 byte readPot(int pin) {
-  unsigned int potValue;
-  if (pin == RESET_PIN) {   // reset pin not connected to pot
-    potValue = 255;
-  } else {
-    potValue = map(analogRead(pin), 0, 1023, 0, 255);
-  }
+  byte potValue = map(analogRead(pin), 0, 1023, 0, 255);
   return gammaCurve[potValue];
 }
 
 
 void updateLeds(byte fadeValue) {
-  for(ioPins pins: IOPINS){
-    byte potValue = readPot(pins.pot);
-    byte ledValue = map(potValue, 0, 255, 0, fadeValue);
-    analogWrite(pins.led, ledValue);
-  }
+  byte potValue;
+  byte ledValue;
+
+  // LED0 tops at max value
+  analogWrite(LED0, fadeValue);
+
+  potValue = readPot(POT1);
+  ledValue = map(fadeValue, 0, 255, 0, potValue);
+  analogWrite(LED1, ledValue);
+
+  potValue = readPot(POT2);
+  ledValue = map(fadeValue, 0, 255, 0, potValue);
+  analogWrite(LED2, ledValue);
 }
