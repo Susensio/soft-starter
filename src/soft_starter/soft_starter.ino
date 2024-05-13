@@ -5,6 +5,53 @@ const int LED2 = PB4;
 const int POT1 = A1;
 const int POT2 = A3;
 
+class Smoother {
+  private:
+    int pin;
+    byte i;
+    int readings[10];
+    int previous;
+  public:
+    Smoother(int inputPin) {
+      pin = inputPin;
+      i = 0;
+      previous = 0;
+      for (byte i = 0; i < 10; i++) {
+        readings[i] = 0;
+      }
+    }
+    void init();
+    int update();
+};
+
+void Smoother::init() {
+  int value = analogRead(pin);
+  for (byte i = 0; i < 10; i++) {
+    readings[i] = value;
+  }
+  previous = value;
+  i = 0;
+}
+
+int Smoother::update() {
+  int value = analogRead(pin);
+  readings[i] = value;
+  i = (i + 1) % 10;
+
+  int sum = 0;
+  for (byte i = 0; i < 10; i++) {
+    sum += readings[i];
+  }
+  int average = sum / 10;
+  // hysterisis
+  if (abs(average - previous) > 1) {
+    previous = average;
+  }
+  return previous;
+}
+
+Smoother sp1(POT1);
+Smoother sp2(POT2);
 
 unsigned long startMillis;
 const unsigned long RAMP_MILLIS = 700;
@@ -32,10 +79,13 @@ const byte gammaCurve[256] = {
 void setup() {
   pinMode(POT1, INPUT);
   pinMode(POT2, INPUT);
-  
+
   pinMode(LED0, OUTPUT);
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
+
+  sp1.init();
+  sp2.init();
 
   startMillis = millis();
 }
@@ -54,16 +104,17 @@ void loop() {
   } while (elapsedMillis < RAMP_MILLIS);
 
   fadeValue = 255;
+
   while (true) {
     updateLeds(fadeValue);
     delay(100);
   }
 }
 
-
-byte readPot(int pin) {
-  byte potValue = map(analogRead(pin), 0, 1023, 0, 255);
-  return gammaCurve[potValue];
+byte readPot(Smoother &sp) {
+  int potValue = sp.update();
+  byte value = map(potValue, 0, 1023, 0, 255);
+  return gammaCurve[value];
 }
 
 
@@ -74,11 +125,11 @@ void updateLeds(byte fadeValue) {
   // LED0 tops at max value
   analogWrite(LED0, fadeValue);
 
-  potValue = readPot(POT1);
+  potValue = readPot(sp1);
   ledValue = map(fadeValue, 0, 255, 0, potValue);
   analogWrite(LED1, ledValue);
 
-  potValue = readPot(POT2);
+  potValue = readPot(sp2);
   ledValue = map(fadeValue, 0, 255, 0, potValue);
   analogWrite(LED2, ledValue);
 }
